@@ -1,60 +1,79 @@
-# token_manager.py
-import os
 import requests
-from dotenv import load_dotenv
-
-load_dotenv()
+from config import (
+    INSTAGRAM_APP_ID,
+    INSTAGRAM_APP_SECRET,
+    INSTAGRAM_REDIRECT_URI,
+    GRAPH_API_VERSION
+)
+from token_store import TokenStore
 
 class TokenManager:
     def __init__(self):
-        # Load tokens from environment variables (defined in config.env/.env)
-        self.instagram_business_token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
-        # Credentials for performing OAuth exchanges for user tokens
-        self.app_id = os.getenv("INSTAGRAM_APP_ID")
-        self.app_secret = os.getenv("INSTAGRAM_APP_SECRET")
-        self.redirect_uri = os.getenv("INSTAGRAM_REDIRECT_URI")
+        # Initialize token store
+        self.token_store = TokenStore()
         
-        # 验证必要的环境变量
-        if not all([self.app_id, self.app_secret, self.instagram_business_token]):
-            raise Exception("Missing required environment variables: INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET, or INSTAGRAM_ACCESS_TOKEN")
+        # Credentials for performing OAuth exchanges for user tokens
+        self.app_id = INSTAGRAM_APP_ID
+        self.app_secret = INSTAGRAM_APP_SECRET
+        self.redirect_uri = INSTAGRAM_REDIRECT_URI
+        
+        # Validate required configuration
+        if not self.app_id:
+            raise Exception("Missing required configuration: INSTAGRAM_APP_ID")
+        if not self.app_secret:
+            raise Exception("Missing required configuration: INSTAGRAM_APP_SECRET")
 
     def get_instagram_business_token(self):
-        # 验证令牌是否有效
-        if not self.instagram_business_token:
-            raise Exception("Instagram access token is not set in environment variables")
-        
-        # 尝试使用令牌获取用户信息来验证令牌
+        """
+        Get the Instagram Business Access Token, refreshing if necessary.
+        """
         try:
-            url = f"https://graph.facebook.com/v22.0/me"
-            params = {
-                "access_token": self.instagram_business_token,
-                "fields": "id,name"
-            }
-            response = requests.get(url, params=params)
-            if response.status_code != 200:
-                print(f"Token validation failed: {response.text}")
-                # 如果令牌无效，尝试刷新
-                self.refresh_token()
+            # Get token from store
+            business_token = self.token_store.get_business_token()
+            
+            if not business_token:
+                print("No existing token found, getting new token...")
+                return self.refresh_token()
+            
+            # Try to validate token
+            try:
+                url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/me"
+                params = {
+                    "access_token": business_token,
+                    "fields": "id,name"
+                }
+                response = requests.get(url, params=params)
+                
+                if response.status_code == 200:
+                    return business_token
+                
+            except Exception as e:
+                print(f"Token validation failed: {e}")
+            
+            # If we get here, token is invalid or expired
+            print("Token is invalid or expired, refreshing...")
+            return self.refresh_token()
+            
         except Exception as e:
-            print(f"Error validating token: {e}")
-            self.refresh_token()
-        
-        return self.instagram_business_token
+            print(f"Error getting business token: {e}")
+            raise
 
-    def get_short_lived_token(self, auth_code):
+    def get_short_lived_token(self, auth_code=None):
         """
         Exchanges an auth code for a short-lived access token.
-        For Instagram Basic Display API, use:
-          POST https://api.instagram.com/oauth/access_token
+        If auth_code is None, uses client_credentials grant type.
         """
         url = "https://api.instagram.com/oauth/access_token"
         data = {
             "client_id": self.app_id,
             "client_secret": self.app_secret,
-            "grant_type": "authorization_code",
-            "redirect_uri": self.redirect_uri,
+            "grant_type": "authorization_code" if auth_code else "client_credentials",
+            "redirect_uri": self.redirect_uri if auth_code else None,
             "code": auth_code
         }
+        # Remove None values
+        data = {k: v for k, v in data.items() if v is not None}
+        
         response = requests.post(url, data=data)
         if response.status_code != 200:
             raise Exception(f"Error obtaining short-lived token: {response.text}")
@@ -64,9 +83,8 @@ class TokenManager:
     def exchange_short_lived_token(self, short_lived_token):
         """
         Exchanges a short-lived token for a long-lived token.
-        Endpoint: GET https://graph.facebook.com/v12.0/oauth/access_token
         """
-        url = "https://graph.facebook.com/v12.0/oauth/access_token"
+        url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/oauth/access_token"
         params = {
             "grant_type": "fb_exchange_token",
             "client_id": self.app_id,
@@ -91,40 +109,64 @@ class TokenManager:
 
     def refresh_token(self):
         """
-        刷新访问令牌
+        Refresh the Instagram Business Access Token using the current long-lived token.
+        This method assumes that a valid current token exists in the token store.
+        
+        If no current token is found, the method raises an exception to indicate that 
+        re-authentication via OAuth is needed.
         """
         try:
-            print("Attempting to refresh Instagram access token...")
-            print(f"Using APP_ID: {self.app_id}")
+            # Get current business token from token store
+            current_token = self.token_store.get_business_token()
+            if not current_token:
+                raise Exception("No current business access token available. Please authenticate first.")
+
+            print("Attempting to refresh Instagram Business access token using current token...")
             
-            # 使用正确的 API 版本和端点
-            url = "https://graph.facebook.com/v22.0/oauth/access_token"
-            params = {
-                "grant_type": "fb_exchange_token",
-                "client_id": self.app_id,
-                "client_secret": self.app_secret,
-                "fb_exchange_token": self.instagram_business_token
-            }
+            # Use the Graph API endpoint to refresh the token.
+            # We call exchange_short_lived_token() with the current token because the endpoint is the same for both exchanging and refreshing.
+            new_token = self.exchange_short_lived_token(current_token)
+            if not new_token:
+                raise Exception("No long-lived token received in response")
             
-            print(f"Making request to: {url}")
-            response = requests.get(url, params=params)
-            print(f"Response status: {response.status_code}")
-            print(f"Response text: {response.text}")
-            
-            if response.status_code == 200:
-                token_data = response.json()
-                new_token = token_data.get("access_token")
-                if new_token:
-                    self.instagram_business_token = new_token
-                    print("Successfully refreshed Instagram access token")
-                    # 更新环境变量
-                    os.environ["INSTAGRAM_ACCESS_TOKEN"] = new_token
-                else:
-                    raise Exception("Failed to get new access token from response")
-            else:
-                error_data = response.json()
-                error_message = error_data.get("error", {}).get("message", "Unknown error")
-                raise Exception(f"Error refreshing token: {error_message}")
+            print("Successfully refreshed the token.")
+            # Save the new token back to the token store (and update timestamp, if desired)
+            self.token_store.save_business_token(new_token)
+            print("New token saved to tokens.json.")
+
+            return new_token
+
         except Exception as e:
             print(f"Error in refresh_token: {e}")
-            raise Exception("Failed to refresh Instagram access token. Please check your app credentials and try again.")
+            raise Exception("Failed to refresh Instagram access token. Please check your app credentials and token validity.")
+
+    def generate_or_regenerate_access_tokens_for_users(self, fb_page_id, ig_user_id):
+        """
+        Generate or regenerate access tokens for the specified Facebook page and Instagram user.
+        """
+        try:
+            # Step 1: Get short-lived token for the Facebook page
+            short_lived_token = self.get_short_lived_token(auth_code=None)  # 使用 client_credentials 获取短期令牌
+            
+            if not short_lived_token:
+                raise Exception("Failed to obtain short-lived token.")
+
+            print("Successfully obtained short-lived token.")
+
+            # Step 2: Exchange short-lived token for long-lived token
+            long_lived_token = self.exchange_short_lived_token(short_lived_token)
+            
+            if not long_lived_token:
+                raise Exception("Failed to obtain long-lived token.")
+
+            print("Successfully exchanged for long-lived token.")
+
+            # Step 3: Save tokens to token store with expiration date
+            expires_at = "2025-12-31T23:59:59Z"  # 示例过期日期，实际应根据 API 返回的过期时间设置
+            self.token_store.save_persona_token("Aunt", long_lived_token, expires_at)  # 保存 Aunt 的令牌
+            self.token_store.save_persona_token("Participant", long_lived_token, expires_at)  # 保存 Participant 的令牌
+
+            print("Access tokens saved successfully.")
+
+        except Exception as e:
+            print(f"Error generating or regenerating access tokens: {e}")
