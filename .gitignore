@@ -51,3 +51,10 @@ htmlcov/
 
 # Local development
 *.local 
+old_scripts/ig_api.py
+old_scripts/ig_auth.py
+old_scripts/ig_web_scraping.py
+old_scripts/mistral_call.py
+prompts/base_prompt.txt
+templates/index.html
+templates/success.html
