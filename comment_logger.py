@@ -1,7 +1,8 @@
 import sqlite3
+from config import COMMENT_LOG_FILE
 
 class CommentLogger:
-    def __init__(self, db_path="comments.db"):
+    def __init__(self, db_path=COMMENT_LOG_FILE):
         self.db_path = db_path
         self.conn = sqlite3.connect(self.db_path)
         self.create_table()

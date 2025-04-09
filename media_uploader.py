@@ -1,11 +1,12 @@
 # media_uploader.py
 from google.cloud import storage
 import uuid
+from config import GCP_CREDENTIALS_PATH
 
 class MediaUploader:
     def __init__(self, bucket_name):
         self.bucket_name = bucket_name
-        self.client = storage.Client()
+        self.client = storage.Client.from_service_account_json(GCP_CREDENTIALS_PATH)
         self.bucket = self.client.get_bucket(bucket_name)
 
     def upload_media_bytes(self, media_bytes, destination_blob_name=None, content_type="auto"):
