@@ -1,7 +1,6 @@
 {
   "aunt": {
     "Label": "Aunt",
-    "IG User ID": 17841473223092973,
     "Goals": [
       "Promote better meal portioning and timing",
       "Encourage the intake of more nutritious meals",
@@ -37,7 +36,6 @@
   },
   "close_friend": {
     "Label": "Close Friend",
-    "IG User ID": 0,
     "Goals": [
       "Prompt the poster to engage with their food and eating experience on a deeper level",
       "Nudge the poster gently toward mindful eating behaviors (eating at a more appropriate pace, savoring food, and tuning into the present moment)",
@@ -70,7 +68,6 @@
   },
   "healthy_eating_coach": {
     "Label": "Healthy Eating Coach",
-    "IG User ID": 0,
     "Goals": [
       "Encourage the intake of more nutritious meals",
       "Nudge the poster gently toward mindful eating behaviors (eating at a more appropriate pace, savoring food)",
@@ -106,7 +103,6 @@
   },
   "food_connoisseur": {
     "Label": "Food Connoisseur",
-    "IG User ID": 0,
     "Goals": [
       "Increase the poster's engagement with diverse sensory aspects of their food",
       "Nudge the poster gently toward mindful eating behaviors (eating at a more appropriate pace, savoring food, and tuning into the present moment)"
@@ -137,7 +133,6 @@
   },
   "fan": {
     "Label": "Fan",
-    "IG User ID": 0,
     "Goals": [
       "Nudge the poster to put more effort into the look/presentation of their food and take better pictures of them",
       "Increase the poster's confidence in their content, so they have more incentives to continue posting"
@@ -167,7 +162,6 @@
   },
   "curious_casual_visitor": {
     "Label": "Curious Casual Visitor",
-    "IG User ID": 0,
     "Goals": [
       "Introduce unpredictability: prompt the poster to be thoroughly reflective of their sensory experiences to prepare for unexpected questions",
       "Promote prolonged engagement: prompt the poster to keep posting to attract and keep them as a follower"
