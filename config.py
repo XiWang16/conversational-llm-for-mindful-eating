@@ -50,6 +50,21 @@ AUNT_IG_PASSWORD = os.getenv("AUNT_IG_PASSWORD")
 # CURIOUS_CASUAL_VISITOR_IG_USERNAME = os.getenv("CURIOUS_CASUAL_VISITOR_IG_USERNAME")
 # CURIOUS_CASUAL_VISITOR_IG_PASSWORD = os.getenv("CURIOUS_CASUAL_VISITOR_IG_PASSWORD")
 
+# List of permissions to request for business access token
+INSTAGRAM_SCOPES = [
+    "pages_show_list",
+    "business_management",
+    "pages_messaging",
+    "instagram_basic",
+    "instagram_manage_comments",
+    "instagram_manage_insights",
+    "instagram_content_publish",
+    "instagram_manage_messages",
+    "pages_read_engagement",
+    "pages_manage_metadata",
+    "pages_read_user_content"
+]
+
 # OpenAI API
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
