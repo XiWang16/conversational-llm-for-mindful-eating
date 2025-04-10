@@ -1,4 +1,3 @@
-# instagram_api.py
 import requests
 from config import GRAPH_API_VERSION
 
@@ -19,7 +18,7 @@ class InstagramAPI:
         }
         response = requests.get(url, params=params)
         if response.status_code != 200:
-            raise Exception(f"Error getting pages that the current user has access to: {response.text}")
+            raise Exception(f"Error getting pages: {response.text}")
         
         data = response.json()
         if "data" not in data:
@@ -29,7 +28,7 @@ class InstagramAPI:
 
     def get_page_by_name(self, page_name):
         """
-        Get a specific Facebook Page by name.
+        Get a specific Facebook Page by its name.
         """
         pages = self.get_user_pages()
         for page in pages:
@@ -39,7 +38,7 @@ class InstagramAPI:
 
     def get_connected_instagram_account(self, page_id, page_access_token):
         """
-        Get the Instagram Business Account connected to a Facebook Page.
+        Get the Instagram Business Account connected to the given Facebook Page.
         """
         url = f"{self.base_url}/{page_id}"
         params = {
@@ -58,21 +57,23 @@ class InstagramAPI:
 
     def get_recent_post(self, page_name):
         """
-        Retrieve the most recent post from an Instagram Business account connected to a Facebook Page.
+        Retrieve the most recent post from an Instagram Business account connected to the given Facebook Page.
+        Note: The API response might return posts in descending order.
+        Adjust index as necessary.
         """
-        # Step 1 & 2: Get the page by name and its access token
+        # Get the page and its access token
         page = self.get_page_by_name(page_name)
         page_id = page["id"]
         page_access_token = page["access_token"]
         
-        # Step 3: Get the connected Instagram Business Account
+        # Get the connected Instagram Business Account
         ig_account = self.get_connected_instagram_account(page_id, page_access_token)
         ig_account_id = ig_account["id"]
         
-        # Step 4: Get the most recent post
+        # Get the most recent posts
         url = f"{self.base_url}/{ig_account_id}/media"
         params = {
-            "fields": "id,caption,media_type,media_url,timestamp,permalink",
+            "fields": "id,caption,media_type,media_url,timestamp,permalink,children",  # include children if carousel
             "limit": 1,
             "access_token": self.ig_business_access_token
         }
@@ -81,9 +82,56 @@ class InstagramAPI:
             raise Exception(f"Error retrieving posts: {response.text}")
         data = response.json()
         if "data" in data and len(data["data"]) > 0:
+            # Adjust the index as needed. Here we pick the second most-recent post.
             return data["data"][0]
         else:
             raise Exception("No posts found for the specified account.")
+    
+    
+    def get_media_details(self, media_id):
+        """
+        Retrieve full details of a media item using its media ID.
+        This is particularly useful for carousel items, which only include the ID in the children list.
+        """
+        url = f"{self.base_url}/{media_id}"
+        params = {
+            "fields": "id,media_type,media_url,timestamp",
+            "access_token": self.ig_business_access_token
+        }
+        response = requests.get(url, params=params)
+        if response.status_code != 200:
+            raise Exception(f"Error retrieving media details: {response.text}")
+        return response.json()
+
+
+    def get_media_urls(self, post):
+        """
+        Retrieve media URLs based on media type (carousel vs. single post).
+        """
+        media_urls = []
+        try:
+            media_type = post.get("media_type")
+            if media_type == "CAROUSEL_ALBUM":
+                children = post.get("children", {})
+                # Instagram may return children as { "data": [...] }
+                children_data = children.get("data", []) if isinstance(children, dict) else children
+                print(children_data)
+                for child in children_data:
+                    child_id = child.get("id")
+                    if child_id:
+                        # Get the full child media details using the API.
+                        child_details = self.get_media_details(child_id)
+                        url = child_details.get("media_url")
+                        if url:
+                            media_urls.append(url)
+            else:
+                url = post.get("media_url")
+                if url:
+                    media_urls.append(url)
+        except Exception as e:
+            print(f"Error parsing media URLs from Graph API post: {e}")
+        
+        return media_urls
 
     def get_comments(self, post_id):
         """
@@ -104,7 +152,7 @@ class InstagramAPI:
         """
         Post a comment to a given post using a persona's access token.
         """
-        # First verify the persona token is valid and has required permissions
+        # Verify the persona token is valid and has required permissions.
         url = f"{self.base_url}/me"
         params = {
             "fields": "id,name",
@@ -133,3 +181,4 @@ class InstagramAPI:
         if response.status_code != 200:
             raise Exception(f"Error downloading media: {response.text}")
         return response.content
+
